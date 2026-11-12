@@ -182,7 +182,7 @@
       <span id="txt_footer_title">Multiple Account Stats Analyzer</span>
     </div>
     <div>
-      <span id="txt_footer_dev">Engineered by</span> <span class="text-slate-300 font-semibold hover:text-red-400 transition cursor-default">Invincible</span>
+      <span id="txt_footer_dev">Made by</span> <span class="text-slate-300 font-semibold hover:text-red-400 transition cursor-default">Invincible</span>
     </div>
   </footer>
 
@@ -227,7 +227,7 @@
         no_data: "No data loaded yet. Enter usernames above and click calculate.",
         not_found: "Not Found",
         footer_title: "Multiple Account Stats Analyzer",
-        footer_dev: "Engineered by",
+        footer_dev: "Made by",
         alert_no_users: "Please enter at least one account username.",
         alert_no_export: "No parsed data to export.",
         querying: "Querying",
@@ -283,7 +283,7 @@
         no_data: "暂无数据。请在上方输入用户名并点击计算。",
         not_found: "未找到账号",
         footer_title: "多账号战绩聚合分析器",
-        footer_dev: "技术开发",
+        footer_dev: "开发者",
         alert_no_users: "请至少输入一个玩家用户名。",
         alert_no_export: "没有可导出的数据。",
         querying: "正在查询",
@@ -361,7 +361,7 @@
         statusEl.innerText = t.ready;
       }
 
-      if (parsedResults.length) {
+      if (parsedResults.filter(Boolean).length) {
         renderTable();
       } else {
         const emptyCell = document.getElementById("empty_row_text");
@@ -391,6 +391,22 @@
       return 1;
     }
 
+    async function queryIronVault(username) {
+      try {
+        const res = await fetch("https://ironvault.vercel.app/api/getProfileByUsername", {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=UTF-8" },
+          body: username,
+          signal: AbortSignal.timeout(4000)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.result && json.data) return json.data;
+        }
+      } catch (err) {}
+      return null;
+    }
+
     async function queryTankTroubleRPC(username) {
       const rpcPayload = {
         jsonrpc: "2.0",
@@ -398,87 +414,49 @@
         id: 1,
         params: [username]
       };
-
-      const proxyEndpoints = [
-        {
-          url: "https://corsproxy.io/?url=" + encodeURIComponent("https://tanktrouble.com/ajax/"),
-          headers: { "Content-Type": "application/json" }
-        },
-        {
-          url: "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://tanktrouble.com/ajax/"),
-          headers: { "Content-Type": "application/json" }
-        }
-      ];
-
       try {
-        const directRes = await fetch("https://tanktrouble.com/ajax/", {
+        const res = await fetch("https://corsproxy.io/?url=" + encodeURIComponent("https://tanktrouble.com/ajax/"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(rpcPayload),
-          signal: AbortSignal.timeout(2200)
-        });
-        if (directRes.ok) {
-          const json = await directRes.json();
-          if (json && json.result && json.result.data) return json.result.data;
-        }
-      } catch (e) {}
-
-      for (let proxy of proxyEndpoints) {
-        try {
-          const res = await fetch(proxy.url, {
-            method: "POST",
-            headers: proxy.headers,
-            body: JSON.stringify(rpcPayload),
-            signal: AbortSignal.timeout(3500)
-          });
-          if (res.ok) {
-            const json = await res.json();
-            if (json && json.result && json.result.data) {
-              return json.result.data;
-            }
-          }
-        } catch (err) {}
-      }
-
-      return null;
-    }
-
-    async function queryIronVaultFallback(username) {
-      try {
-        const res = await fetch("https://ironvault.vercel.app/api/getProfileByUsername", {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=UTF-8" },
-          body: username,
           signal: AbortSignal.timeout(3500)
         });
-
         if (res.ok) {
           const json = await res.json();
-          if (json && json.result && json.data) {
-            return json.data;
-          }
+          if (json && json.result && json.result.data) return json.result.data;
         }
       } catch (err) {}
       return null;
     }
 
-    async function fetchAccountDirect(rawUsername, onStatus) {
+    async function fetchSingleCandidate(cand) {
+      // Query IronVault directly first (fast, no CORS proxy overhead), fallback to RPC if needed
+      const iv = await queryIronVault(cand);
+      if (iv) return iv;
+      return await queryTankTroubleRPC(cand);
+    }
+
+    async function fetchAccountDirect(rawUsername) {
       const u = rawUsername.trim();
       if (!u) return null;
 
-      const candidates = [u];
-      if (u.includes("_")) candidates.push(u.replace(/_/g, " "));
+      // Primary exact lookup first
+      const primary = await fetchSingleCandidate(u);
+      if (primary) return primary;
+
+      // Only try alternate spacing/underscore formats if exact name wasn't found
+      const alts = new Set();
+      if (u.includes("_")) alts.add(u.replace(/_/g, " "));
       const spaced = u.replace(/([a-z])([A-Z])/g, '$1 $2');
-      if (spaced !== u) candidates.push(spaced);
+      if (spaced !== u) alts.add(spaced);
       const joined = u.replace(/\s+/g, '');
-      if (joined !== u) candidates.push(joined);
+      if (joined !== u) alts.add(joined);
 
-      for (let cand of candidates) {
-        let data = await queryTankTroubleRPC(cand);
-        if (data) return data;
-
-        data = await queryIronVaultFallback(cand);
-        if (data) return data;
+      if (alts.size > 0) {
+        try {
+          const results = await Promise.all([...alts].map(c => fetchSingleCandidate(c)));
+          return results.find(r => r !== null) || null;
+        } catch (_) {}
       }
       return null;
     }
@@ -533,13 +511,14 @@
     function renderTable() {
       const t = translations[currentLang];
       const tableBody = document.getElementById("tableBody");
+      const validList = parsedResults.filter(Boolean);
 
-      if (!parsedResults.length) {
+      if (!validList.length) {
         tableBody.innerHTML = `<tr><td id="empty_row_text" colspan="11" class="p-5 text-center text-slate-500 font-sans">${t.no_data}</td></tr>`;
         return;
       }
 
-      let displayList = [...parsedResults];
+      let displayList = [...validList];
 
       displayList.sort((a, b) => {
         if (!isOriginalOrder) {
@@ -594,7 +573,7 @@
             <td class="p-3 text-slate-500 font-sans">${idx + 1}</td>
             <td class="p-3 font-semibold text-slate-400 flex items-center gap-2">
               <span>${rowData.user}</span>
-              <button onclick="retrySingleAccount('${rowData.user.replace(/'/g, "\\'")}')" title="Retry" class="retry-btn text-slate-500 hover:text-red-400 text-xs p-1">
+              <button onclick="retrySingleAccount('${rowData.user.replace(/'/g, "\'")}')" title="Retry" class="retry-btn text-slate-500 hover:text-red-400 text-xs p-1">
                 <i class="fa-solid fa-arrows-rotate"></i>
               </button>
             </td>
@@ -613,7 +592,7 @@
       let totals = { kills: 0, deaths: 0, victories: 0, defeats: 0, rounds: 0, suicides: 0 };
 
       parsedResults.forEach(r => {
-        if (r.found) {
+        if (r && r.found) {
           totals.kills += r.kills;
           totals.deaths += r.deaths;
           totals.victories += r.victories;
@@ -639,11 +618,9 @@
       const statusText = document.getElementById("statusText");
       statusText.innerText = `${t.retrying}: ${username}...`;
 
-      const data = await fetchAccountDirect(username, (msg) => {
-        statusText.innerText = msg;
-      });
+      const data = await fetchAccountDirect(username);
 
-      const index = parsedResults.findIndex(r => r.user === username);
+      const index = parsedResults.findIndex(r => r && r.user === username);
       if (index !== -1) {
         if (data && (data.kills !== undefined || data.deaths !== undefined || data.victories !== undefined)) {
           let updatedRow = {
@@ -693,16 +670,15 @@
       const progressBar = document.getElementById("progressBar");
 
       fetchBtn.disabled = true;
-      parsedResults = [];
+      parsedResults = new Array(lines.length);
+      let completedCount = 0;
+      const CONCURRENCY = 5;
 
-      for (let i = 0; i < lines.length; i++) {
+      async function processAccount(i) {
         const username = lines[i];
-        statusText.innerText = `${t.querying} (${i + 1}/${lines.length}): ${username}...`;
-        progressBar.style.width = `${Math.round(((i + 1) / lines.length) * 100)}%`;
+        statusText.innerText = `${t.querying} (${completedCount}/${lines.length}): ${username}...`;
 
-        const data = await fetchAccountDirect(username, (msg) => {
-          statusText.innerText = `(${i + 1}/${lines.length}) ${msg}`;
-        });
+        const data = await fetchAccountDirect(username);
 
         let rowData = {
           originalIndex: i,
@@ -739,12 +715,23 @@
           rowData.winRate = totalGames > 0 ? ((rowData.victories / totalGames) * 100).toFixed(1) + "%" : "0.0%";
         }
 
-        parsedResults.push(rowData);
+        parsedResults[i] = rowData;
+        completedCount++;
+        progressBar.style.width = `${Math.round((completedCount / lines.length) * 100)}%`;
+        statusText.innerText = `${t.querying} (${completedCount}/${lines.length})...`;
         updateCards();
         renderTable();
-
-        await new Promise(r => setTimeout(r, 200));
       }
+
+      // Process 5 accounts concurrently for ~5x faster speed
+      let nextIdx = 0;
+      const workers = Array.from({ length: Math.min(CONCURRENCY, lines.length) }, async () => {
+        while (nextIdx < lines.length) {
+          const currentIdx = nextIdx++;
+          await processAccount(currentIdx);
+        }
+      });
+      await Promise.all(workers);
 
       statusText.innerText = t.completed;
       fetchBtn.disabled = false;
@@ -753,12 +740,13 @@
 
     function exportCSV() {
       const t = translations[currentLang];
-      if (!parsedResults.length) return alert(t.alert_no_export);
+      const validList = parsedResults.filter(Boolean);
+      if (!validList.length) return alert(t.alert_no_export);
       let csv = currentLang === "zh"
         ? "排名,玩家用户名,状态,击杀,阵亡,K/D,胜场,败场,总回合数,胜率,自杀,等级\n"
         : "Rank,User,Status,Kills,Deaths,K/D,Victories,Defeats,TotalRounds,WinRate,Suicides,Level\n";
 
-      parsedResults.forEach((r, idx) => {
+      validList.forEach((r, idx) => {
         if (r.found) {
           const status = currentLang === "zh" ? "正常" : "Found";
           csv += `${idx + 1},"${r.user}","${status}",${r.kills},${r.deaths},${r.kd},${r.victories},${r.defeats},${r.rounds},"${r.winRate}",${r.suicides},${r.level}\n`;
