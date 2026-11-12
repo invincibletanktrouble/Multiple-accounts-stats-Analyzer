@@ -73,7 +73,7 @@
   </div>
 
   <!-- Cumulative Metric Cards -->
-  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+  <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 mb-6">
     <div class="card p-3 rounded-lg border-l-4 border-l-red-500">
       <div id="card_lbl_kills" class="text-[10px] uppercase font-bold text-slate-400">Total Kills</div>
       <div id="totalKills" class="text-lg font-bold text-white mt-1">0</div>
@@ -93,6 +93,10 @@
     <div class="card p-3 rounded-lg border-l-4 border-l-rose-500">
       <div id="card_lbl_defeats" class="text-[10px] uppercase font-bold text-slate-400">Defeats</div>
       <div id="totalDefeats" class="text-lg font-bold text-rose-400 mt-1">0</div>
+    </div>
+    <div class="card p-3 rounded-lg border-l-4 border-l-purple-500">
+      <div id="card_lbl_rounds" class="text-[10px] uppercase font-bold text-slate-400">Total Rounds</div>
+      <div id="totalRounds" class="text-lg font-bold text-purple-400 mt-1">0</div>
     </div>
     <div class="card p-3 rounded-lg border-l-4 border-l-blue-500">
       <div id="card_lbl_winrate" class="text-[10px] uppercase font-bold text-slate-400">Win Rate</div>
@@ -115,6 +119,7 @@
         <option value="kd_desc">K/D: High → Low</option>
         <option value="kd_asc">K/D: Low → High</option>
         <option value="victories_desc">Wins: High → Low</option>
+        <option value="rounds_desc">Total Rounds: High → Low</option>
         <option value="winrate_desc">Win Rate: High → Low</option>
         <option value="level_desc">Level: High → Low</option>
         <option value="user_asc">Name: A → Z</option>
@@ -147,6 +152,9 @@
             <th class="p-3 text-right sortable" onclick="toggleColumnSort('defeats')">
               <span id="th_defeats">Defeats</span> <i id="icon_defeats" class="fa-solid fa-sort text-[9px] opacity-40 ml-1"></i>
             </th>
+            <th class="p-3 text-right sortable" onclick="toggleColumnSort('rounds')">
+              <span id="th_rounds">Rounds</span> <i id="icon_rounds" class="fa-solid fa-sort text-[9px] opacity-40 ml-1"></i>
+            </th>
             <th class="p-3 text-right sortable" onclick="toggleColumnSort('winRate')">
               <span id="th_winRate">Win %</span> <i id="icon_winRate" class="fa-solid fa-sort text-[9px] opacity-40 ml-1"></i>
             </th>
@@ -160,7 +168,7 @@
         </thead>
         <tbody id="tableBody" class="divide-y divide-slate-800/60 font-mono">
           <tr>
-            <td id="empty_row_text" colspan="10" class="p-5 text-center text-slate-500 font-sans">No data loaded yet. Enter usernames above and click calculate.</td>
+            <td id="empty_row_text" colspan="11" class="p-5 text-center text-slate-500 font-sans">No data loaded yet. Enter usernames above and click calculate.</td>
           </tr>
         </tbody>
       </table>
@@ -202,6 +210,7 @@
         card_kd: "Overall K/D",
         card_wins: "Victories",
         card_defeats: "Defeats",
+        card_rounds: "Total Rounds",
         card_winrate: "Win Rate",
         table_heading: '<i class="fa-solid fa-list-ol text-slate-500"></i> Player Breakdowns',
         order_by: "Order by:",
@@ -211,6 +220,7 @@
         th_kd: "K/D",
         th_victories: "Victories",
         th_defeats: "Defeats",
+        th_rounds: "Rounds",
         th_winRate: "Win %",
         th_suicides: "Suicides",
         th_level: "Level",
@@ -234,6 +244,7 @@
           kd_desc: "K/D: High → Low",
           kd_asc: "K/D: Low → High",
           victories_desc: "Wins: High → Low",
+          rounds_desc: "Total Rounds: High → Low",
           winrate_desc: "Win Rate: High → Low",
           level_desc: "Level: High → Low",
           user_asc: "Name: A → Z"
@@ -255,6 +266,7 @@
         card_kd: "综合 K/D",
         card_wins: "总胜场",
         card_defeats: "总败场",
+        card_rounds: "总回合数",
         card_winrate: "综合胜率",
         table_heading: '<i class="fa-solid fa-list-ol text-slate-500"></i> 玩家数据明细',
         order_by: "排序方式:",
@@ -264,6 +276,7 @@
         th_kd: "K/D",
         th_victories: "胜场",
         th_defeats: "败场",
+        th_rounds: "总回合",
         th_winRate: "胜率 %",
         th_suicides: "自杀",
         th_level: "等级",
@@ -287,6 +300,7 @@
           kd_desc: "K/D: 高 → 低",
           kd_asc: "K/D: 低 → 高",
           victories_desc: "胜场: 高 → 低",
+          rounds_desc: "总回合数: 高 → 低",
           winrate_desc: "胜率: 高 → 低",
           level_desc: "等级: 高 → 低",
           user_asc: "用户名: A → Z"
@@ -298,32 +312,28 @@
       currentLang = lang;
       const t = translations[lang];
 
-      // Toggle UI button active states
       document.getElementById("lang_en").className = lang === "en" ? "px-2.5 py-1 text-xs font-semibold rounded-md transition bg-red-600 text-white" : "px-2.5 py-1 text-xs font-semibold rounded-md transition text-slate-400 hover:text-white";
       document.getElementById("lang_zh").className = lang === "zh" ? "px-2.5 py-1 text-xs font-semibold rounded-md transition bg-red-600 text-white" : "px-2.5 py-1 text-xs font-semibold rounded-md transition text-slate-400 hover:text-white";
 
-      // Header & Subtitles
       document.getElementById("txt_title").innerText = t.title;
       document.getElementById("txt_badge").innerText = t.badge;
       document.getElementById("txt_author").innerText = t.author;
       document.getElementById("txt_subtitle").innerText = t.subtitle;
       document.getElementById("btn_export_csv").innerText = t.export_csv;
 
-      // Inputs
       document.getElementById("lbl_input").innerText = t.input_label;
       document.getElementById("btn_clear").innerText = t.clear_btn;
       document.getElementById("accountsInput").placeholder = t.placeholder;
       document.getElementById("btn_calc").innerText = t.calc_btn;
 
-      // Cards
       document.getElementById("card_lbl_kills").innerText = t.card_kills;
       document.getElementById("card_lbl_deaths").innerText = t.card_deaths;
       document.getElementById("card_lbl_kd").innerText = t.card_kd;
       document.getElementById("card_lbl_wins").innerText = t.card_wins;
       document.getElementById("card_lbl_defeats").innerText = t.card_defeats;
+      document.getElementById("card_lbl_rounds").innerText = t.card_rounds;
       document.getElementById("card_lbl_winrate").innerText = t.card_winrate;
 
-      // Table Headers & Controls
       document.getElementById("txt_table_heading").innerHTML = t.table_heading;
       document.getElementById("lbl_order").innerText = t.order_by;
       document.getElementById("th_player").innerText = t.th_player;
@@ -332,28 +342,25 @@
       document.getElementById("th_kd").innerText = t.th_kd;
       document.getElementById("th_victories").innerText = t.th_victories;
       document.getElementById("th_defeats").innerText = t.th_defeats;
+      document.getElementById("th_rounds").innerText = t.th_rounds;
       document.getElementById("th_winRate").innerText = t.th_winRate;
       document.getElementById("th_suicides").innerText = t.th_suicides;
       document.getElementById("th_level").innerText = t.th_level;
 
-      // Select Dropdown Options
       const select = document.getElementById("sortSelect");
       for (const [val, text] of Object.entries(t.sort_opts)) {
         const opt = select.querySelector(`option[value="${val}"]`);
         if (opt) opt.innerText = text;
       }
 
-      // Footer
       document.getElementById("txt_footer_title").innerText = t.footer_title;
       document.getElementById("txt_footer_dev").innerText = t.footer_dev;
 
-      // Status bar check
       const statusEl = document.getElementById("statusText");
       if (statusEl.innerText === "Ready" || statusEl.innerText === "就绪") {
         statusEl.innerText = t.ready;
       }
 
-      // Re-render table if data exists
       if (parsedResults.length) {
         renderTable();
       } else {
@@ -384,7 +391,6 @@
       return 1;
     }
 
-    // Direct TankTrouble Official JSON-RPC Engine
     async function queryTankTroubleRPC(username) {
       const rpcPayload = {
         jsonrpc: "2.0",
@@ -437,7 +443,6 @@
       return null;
     }
 
-    // IronVault Fallback
     async function queryIronVaultFallback(username) {
       try {
         const res = await fetch("https://ironvault.vercel.app/api/getProfileByUsername", {
@@ -513,7 +518,7 @@
     }
 
     function updateSortIcons() {
-      const columns = ['user', 'kills', 'deaths', 'kd', 'victories', 'defeats', 'winRate', 'suicides', 'level'];
+      const columns = ['user', 'kills', 'deaths', 'kd', 'victories', 'defeats', 'rounds', 'winRate', 'suicides', 'level'];
       columns.forEach(c => {
         const icon = document.getElementById(`icon_${c}`);
         if (!icon) return;
@@ -530,7 +535,7 @@
       const tableBody = document.getElementById("tableBody");
 
       if (!parsedResults.length) {
-        tableBody.innerHTML = `<tr><td id="empty_row_text" colspan="10" class="p-5 text-center text-slate-500 font-sans">${t.no_data}</td></tr>`;
+        tableBody.innerHTML = `<tr><td id="empty_row_text" colspan="11" class="p-5 text-center text-slate-500 font-sans">${t.no_data}</td></tr>`;
         return;
       }
 
@@ -579,6 +584,7 @@
             <td class="p-3 text-right text-yellow-400 font-bold">${rowData.kd}</td>
             <td class="p-3 text-right text-emerald-400">${rowData.victories.toLocaleString()}</td>
             <td class="p-3 text-right text-rose-400">${rowData.defeats.toLocaleString()}</td>
+            <td class="p-3 text-right text-purple-400 font-semibold">${rowData.rounds.toLocaleString()}</td>
             <td class="p-3 text-right text-blue-400 font-bold">${rowData.winRate}</td>
             <td class="p-3 text-right text-slate-400">${rowData.suicides.toLocaleString()}</td>
             <td class="p-3 text-right text-slate-100 font-sans font-bold">${t.lvl_prefix} ${rowData.level}</td>
@@ -592,7 +598,7 @@
                 <i class="fa-solid fa-arrows-rotate"></i>
               </button>
             </td>
-            <td colspan="7" class="p-3 text-center text-xs text-rose-500 font-sans font-medium">
+            <td colspan="8" class="p-3 text-center text-xs text-rose-500 font-sans font-medium">
               <span class="bg-rose-950/70 border border-rose-800/80 px-2.5 py-0.5 rounded text-[11px] font-bold tracking-wide">${t.not_found}</span>
             </td>
             <td class="p-3 text-right text-slate-600 font-sans">-</td>
@@ -604,7 +610,7 @@
     }
 
     function updateCards() {
-      let totals = { kills: 0, deaths: 0, victories: 0, defeats: 0, suicides: 0 };
+      let totals = { kills: 0, deaths: 0, victories: 0, defeats: 0, rounds: 0, suicides: 0 };
 
       parsedResults.forEach(r => {
         if (r.found) {
@@ -612,6 +618,7 @@
           totals.deaths += r.deaths;
           totals.victories += r.victories;
           totals.defeats += r.defeats;
+          totals.rounds += r.rounds;
           totals.suicides += r.suicides;
         }
       });
@@ -620,6 +627,7 @@
       document.getElementById("totalDeaths").innerText = totals.deaths.toLocaleString();
       document.getElementById("totalVictories").innerText = totals.victories.toLocaleString();
       document.getElementById("totalDefeats").innerText = totals.defeats.toLocaleString();
+      document.getElementById("totalRounds").innerText = totals.rounds.toLocaleString();
       
       const combinedGames = totals.victories + totals.defeats;
       document.getElementById("overallWinRate").innerText = combinedGames > 0 ? ((totals.victories / combinedGames) * 100).toFixed(1) + "%" : "0.0%";
@@ -647,10 +655,12 @@
             victories: cleanNum(data.victories),
             suicides: cleanNum(data.suicides),
             level: getLevelFromXP(data.xp),
+            rounds: 0,
             kd: "0.00",
             winRate: "0.0%"
           };
 
+          updatedRow.rounds = updatedRow.deaths + updatedRow.victories;
           updatedRow.defeats = Math.max(0, updatedRow.deaths - updatedRow.suicides);
           if (updatedRow.defeats === 0 && updatedRow.deaths > 0) {
             updatedRow.defeats = updatedRow.deaths;
@@ -702,6 +712,7 @@
           deaths: 0,
           victories: 0,
           defeats: 0,
+          rounds: 0,
           suicides: 0,
           level: 1,
           kd: "0.00",
@@ -715,6 +726,7 @@
           rowData.victories = cleanNum(data.victories);
           rowData.suicides = cleanNum(data.suicides);
           rowData.level = getLevelFromXP(data.xp);
+          rowData.rounds = rowData.deaths + rowData.victories;
 
           rowData.defeats = Math.max(0, rowData.deaths - rowData.suicides);
           if (rowData.defeats === 0 && rowData.deaths > 0) {
@@ -743,16 +755,16 @@
       const t = translations[currentLang];
       if (!parsedResults.length) return alert(t.alert_no_export);
       let csv = currentLang === "zh"
-        ? "排名,玩家用户名,状态,击杀,阵亡,K/D,胜场,败场,胜率,自杀,等级\n"
-        : "Rank,User,Status,Kills,Deaths,K/D,Victories,Defeats,WinRate,Suicides,Level\n";
+        ? "排名,玩家用户名,状态,击杀,阵亡,K/D,胜场,败场,总回合数,胜率,自杀,等级\n"
+        : "Rank,User,Status,Kills,Deaths,K/D,Victories,Defeats,TotalRounds,WinRate,Suicides,Level\n";
 
       parsedResults.forEach((r, idx) => {
         if (r.found) {
           const status = currentLang === "zh" ? "正常" : "Found";
-          csv += `${idx + 1},"${r.user}","${status}",${r.kills},${r.deaths},${r.kd},${r.victories},${r.defeats},"${r.winRate}",${r.suicides},${r.level}\n`;
+          csv += `${idx + 1},"${r.user}","${status}",${r.kills},${r.deaths},${r.kd},${r.victories},${r.defeats},${r.rounds},"${r.winRate}",${r.suicides},${r.level}\n`;
         } else {
           const status = currentLang === "zh" ? "未找到" : "Not Found";
-          csv += `${idx + 1},"${r.user}","${status}",0,0,0,0,0,0%,0,0\n`;
+          csv += `${idx + 1},"${r.user}","${status}",0,0,0,0,0,0,0%,0,0\n`;
         }
       });
       const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
